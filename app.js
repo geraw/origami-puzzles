@@ -10,6 +10,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const puzzleManager = new PuzzleManager();
     const foldingEngine = new FoldingEngine();
 
+    // UI Elements
+    const btnValley = document.getElementById('btn-valley');
+    const btnMountain = document.getElementById('btn-mountain');
+    const btnExecute = document.getElementById('btn-execute');
+    const btnUndo = document.getElementById('btn-undo');
+    const btnReset = document.getElementById('btn-reset');
+    const btnValidate = document.getElementById('btn-validate');
+    const statusMsg = document.getElementById('status-message');
+
     // Link them
     foldingEngine.setPuzzleManager(puzzleManager);
 
@@ -26,29 +35,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('status-message').textContent = 'Error loading puzzle data.';
     }
 
-    // UI Elements
-    const btnValley = document.getElementById('btn-valley');
-    const btnMountain = document.getElementById('btn-mountain');
-    const btnExecute = document.getElementById('btn-execute');
-    const btnUndo = document.getElementById('btn-undo');
-    const btnReset = document.getElementById('btn-reset');
-    const btnValidate = document.getElementById('btn-validate');
-    const statusMsg = document.getElementById('status-message');
-
-    let currentFoldType = 'valley'; // 'valley' or 'mountain'
+    let selectedFoldType = 'valley'; // 'valley' or 'mountain'
     let proposedFold = null; // { p1: [x, y], p2: [x, y] }
 
     // Event Listeners
 
     btnValley.addEventListener('click', () => {
-        currentFoldType = 'valley';
+        selectedFoldType = 'valley';
         btnValley.classList.add('active');
         btnMountain.classList.remove('active');
         statusMsg.textContent = 'Selected: Valley Fold. Click two points to define fold line.';
     });
 
     btnMountain.addEventListener('click', () => {
-        currentFoldType = 'mountain';
+        selectedFoldType = 'mountain';
         btnMountain.classList.add('active');
         btnValley.classList.remove('active');
         statusMsg.textContent = 'Selected: Mountain Fold. Click two points to define fold line.';
@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     btnExecute.addEventListener('click', () => {
         if (proposedFold) {
-            foldingEngine.executeFold(proposedFold, currentFoldType);
+            foldingEngine.executeFold(proposedFold, selectedFoldType);
             proposedFold = null;
             btnExecute.disabled = true;
             updateUI();
@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     p2: [secondPoint.x, secondPoint.y]
                 };
 
-                statusMsg.textContent = `Fold line defined. Click Execute to perform ${currentFoldType} fold.`;
+                statusMsg.textContent = `Fold line defined. Click Execute to perform ${selectedFoldType} fold.`;
                 btnExecute.disabled = false;
 
                 // Visual feedback for fold line would go here
