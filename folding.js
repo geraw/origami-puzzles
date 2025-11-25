@@ -23,11 +23,8 @@ class FoldingEngine {
         // Deep copy initial state to graph
         this.graph = JSON.parse(JSON.stringify(this.initialState || {}));
         console.log('FoldingEngine initialized');
-    }
 
-    executeFold(foldLine, foldType) {
-        console.log(`Executing ${foldType} fold`, foldLine);
-        // Save state to history
+        // Render the puzzle
         this.history.push(JSON.parse(JSON.stringify(this.graph)));
 
         if (this.puzzleManager) {
