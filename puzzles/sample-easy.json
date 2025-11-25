@@ -1,0 +1,14 @@
+{
+    "name": "Sample Easy Puzzle",
+    "difficulty": "Easy",
+    "grid": [
+        ["image", "image", "color", "color", "image", "image", "color", "color"],
+        ["image", "image", "color", "color", "image", "image", "color", "color"],
+        ["color", "color", "image", "image", "color", "color", "image", "image"],
+        ["color", "color", "image", "image", "color", "color", "image", "image"],
+        ["image", "image", "color", "color", "image", "image", "color", "color"],
+        ["image", "image", "color", "color", "image", "image", "color", "color"],
+        ["color", "color", "image", "image", "color", "color", "image", "image"],
+        ["color", "color", "image", "image", "color", "color", "image", "image"]
+    ]
+}

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Origami Puzzle Solver</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Rabbit Ear Library -->
+    <script src="https://rabbit-ear.github.io/rabbit-ear/rabbit-ear.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Origami Puzzle Solver</h1>
+            <p>Fold the 8x8 grid into a 4x4 square!</p>
+        </header>
+
+        <main>
+            <div class="puzzle-container" id="puzzle-container">
+                <!-- SVG will be injected here by Rabbit Ear -->
+            </div>
+
+            <aside class="controls-panel">
+                <div class="status-card">
+                    <h2>Status</h2>
+                    <p id="status-message">Select two points to create a fold.</p>
+                </div>
+
+                <div class="action-card">
+                    <h2>Fold Controls</h2>
+                    <div class="fold-types">
+                        <button id="btn-valley" class="btn btn-primary active">Valley Fold</button>
+                        <button id="btn-mountain" class="btn btn-secondary">Mountain Fold</button>
+                    </div>
+                    <button id="btn-execute" class="btn btn-action" disabled>Execute Fold</button>
+                </div>
+
+                <div class="history-card">
+                    <h2>History</h2>
+                    <div class="button-group">
+                        <button id="btn-undo" class="btn btn-outline" disabled>Undo</button>
+                        <button id="btn-reset" class="btn btn-outline">Reset</button>
+                    </div>
+                </div>
+
+                <div class="validation-card">
+                    <button id="btn-validate" class="btn btn-success">Check Solution</button>
+                    <div id="validation-result" class="validation-result hidden"></div>
+                </div>
+            </aside>
+        </main>
+
+        <footer>
+            <p>Powered by <a href="https://rabbit-ear.github.io/" target="_blank">Rabbit Ear</a></p>
+        </footer>
+    </div>
+
+    <!-- Application Scripts -->
+    <script src="puzzle.js"></script>
+    <script src="folding.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
