@@ -1,14 +1,80 @@
 {
-    "name": "Sample Easy Puzzle",
+    "name": "Sample Diagonal Puzzle",
     "difficulty": "Easy",
-    "grid": [
-        ["image", "image", "color", "color", "image", "image", "color", "color"],
-        ["image", "image", "color", "color", "image", "image", "color", "color"],
-        ["color", "color", "image", "image", "color", "color", "image", "image"],
-        ["color", "color", "image", "image", "color", "color", "image", "image"],
-        ["image", "image", "color", "color", "image", "image", "color", "color"],
-        ["image", "image", "color", "color", "image", "image", "color", "color"],
-        ["color", "color", "image", "image", "color", "color", "image", "image"],
-        ["color", "color", "image", "image", "color", "color", "image", "image"]
+    "file_spec": 1.1,
+    "vertices_coords": [
+        [
+            0,
+            0
+        ],
+        [
+            1,
+            0
+        ],
+        [
+            2,
+            0
+        ],
+        [
+            0,
+            1
+        ],
+        [
+            1,
+            1
+        ],
+        [
+            2,
+            1
+        ],
+        [
+            0,
+            2
+        ],
+        [
+            1,
+            2
+        ],
+        [
+            2,
+            2
+        ]
+    ],
+    "faces_vertices": [
+        [
+            0,
+            1,
+            4
+        ],
+        [
+            0,
+            4,
+            3
+        ],
+        [
+            1,
+            2,
+            5,
+            4
+        ],
+        [
+            3,
+            4,
+            7,
+            6
+        ],
+        [
+            4,
+            5,
+            8,
+            7
+        ]
+    ],
+    "faces_classes": [
+        "image",
+        "color",
+        "image",
+        "color",
+        "image"
     ]
 }

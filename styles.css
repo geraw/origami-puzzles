@@ -233,3 +233,24 @@ footer a {
         min-height: 400px;
     }
 }
+
+/* Puzzle Face Styles */
+.image {
+    fill: #bb86fc;
+    /* Primary color */
+    stroke: #121212;
+    stroke-width: 0.02;
+}
+
+.color {
+    fill: #03dac6;
+    /* Secondary color */
+    stroke: #121212;
+    stroke-width: 0.02;
+}
+
+.folded-crease {
+    stroke: #cf6679;
+    stroke-width: 0.05;
+    stroke-dasharray: 0.1 0.1;
+}
