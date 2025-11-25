@@ -119,10 +119,30 @@ class FoldingEngine {
             faces_classes.push(cell.type);
         });
 
+        // Generate edges from faces
+        // This is a naive implementation that creates edges for every face side.
+        // Rabbit Ear can handle duplicate edges or we can deduplicate.
+        // For rendering, simple edges are fine.
+        const edges_vertices = [];
+        const edges_assignment = [];
+
+        faces_vertices.forEach(face => {
+            for (let i = 0; i < face.length; i++) {
+                const u = face[i];
+                const v = face[(i + 1) % face.length];
+                // Check if edge exists (undirected)
+                // For now, just add all, Rabbit Ear might clean it up or we just render them.
+                edges_vertices.push([u, v]);
+                edges_assignment.push('B'); // Boundary or Unassigned
+            }
+        });
+
         return {
             vertices_coords,
             faces_vertices,
-            faces_classes
+            faces_classes,
+            edges_vertices,
+            edges_assignment
         };
     }
 
@@ -146,111 +166,123 @@ class FoldingEngine {
             return;
         }
 
-        // Use Rabbit Ear to render
-        if (window.ear && window.ear.svg) {
-            console.log('FoldingEngine: Rendering with Rabbit Ear');
-            try {
-                const svg = window.ear.svg(this.container, this.graph);
-                console.log('FoldingEngine: SVG created', svg);
+        // Custom SVG Rendering
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        this.container.appendChild(svg);
 
-                // Add a viewBox to ensure it fits
-                if (!svg.getAttribute('viewBox')) {
-                    // Calculate bounds
-                    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-                    this.graph.vertices_coords.forEach(v => {
-                        minX = Math.min(minX, v[0]);
-                        maxX = Math.max(maxX, v[0]);
-                        minY = Math.min(minY, v[1]);
-                        maxY = Math.max(maxY, v[1]);
-                    });
-                    const padding = 0.1;
-                    const w = maxX - minX + padding * 2;
-                    const h = maxY - minY + padding * 2;
-                    svg.setAttribute('viewBox', `${minX - padding} ${minY - padding} ${w} ${h}`);
+        // Calculate bounds for viewBox
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        this.graph.vertices_coords.forEach(v => {
+            minX = Math.min(minX, v[0]);
+            maxX = Math.max(maxX, v[0]);
+            minY = Math.min(minY, v[1]);
+            maxY = Math.max(maxY, v[1]);
+        });
+        const padding = 0.1;
+        const w = maxX - minX + padding * 2;
+        const h = maxY - minY + padding * 2;
+        svg.setAttribute('viewBox', `${minX - padding} ${minY - padding} ${w} ${h}`);
+
+        // Create defs for clip paths
+        const defs = document.createElementNS(svgNS, 'defs');
+        svg.appendChild(defs);
+
+        // Create group for faces
+        const facesGroup = document.createElementNS(svgNS, 'g');
+        facesGroup.setAttribute('id', 'faces');
+        svg.appendChild(facesGroup);
+
+        // Render Faces
+        if (this.graph.faces_vertices) {
+            this.graph.faces_vertices.forEach((faceIndices, i) => {
+                const path = document.createElementNS(svgNS, 'path');
+
+                // Build path data
+                const points = faceIndices.map(idx => this.graph.vertices_coords[idx]);
+                const d = `M ${points[0][0]} ${points[0][1]} ` +
+                    points.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ') +
+                    ' Z';
+                path.setAttribute('d', d);
+
+                // Apply classes
+                if (this.graph.faces_classes && this.graph.faces_classes[i]) {
+                    path.classList.add(this.graph.faces_classes[i]);
+                }
+                if (this.graph.faces_flipped && this.graph.faces_flipped[i]) {
+                    path.classList.add('flipped');
                 }
 
-                // Apply styles and textures to faces
-                const faceGroup = svg.querySelector('#faces');
-                if (faceGroup && this.puzzleManager && this.puzzleManager.puzzleData.image_url) {
+                facesGroup.appendChild(path);
+
+                // Texture Mapping
+                if (this.puzzleManager && this.puzzleManager.puzzleData.image_url &&
+                    this.graph.faces_classes && this.graph.faces_classes[i] === 'image') {
+
                     const imageUrl = this.puzzleManager.puzzleData.image_url;
 
-                    // We need to add definitions for clip paths
-                    let defs = svg.querySelector('defs');
-                    if (!defs) {
-                        defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-                        svg.insertBefore(defs, svg.firstChild);
+                    // Calculate transform
+                    const initialVertices = this.initialState.faces_vertices[i].map(vIdx => this.initialState.vertices_coords[vIdx]);
+                    const currentVertices = points;
+
+                    if (initialVertices.length >= 3 && currentVertices.length >= 3) {
+                        const matrix = this.calculateAffineTransform(initialVertices, currentVertices);
+
+                        // Create clip path
+                        const clipId = `clip-face-${i}`;
+                        const clipPath = document.createElementNS(svgNS, 'clipPath');
+                        clipPath.setAttribute('id', clipId);
+                        const clipPathGeometry = path.cloneNode(true);
+                        clipPathGeometry.removeAttribute('class');
+                        clipPathGeometry.removeAttribute('id');
+                        clipPath.appendChild(clipPathGeometry);
+                        defs.appendChild(clipPath);
+
+                        // Create image
+                        const image = document.createElementNS(svgNS, 'image');
+                        image.setAttributeNS('http://www.w3.org/1999/xlink', 'href', imageUrl);
+                        image.setAttribute('x', '0');
+                        image.setAttribute('y', '0');
+                        image.setAttribute('width', '2'); // Hardcoded for sample 2x2
+                        image.setAttribute('height', '2');
+                        image.setAttribute('preserveAspectRatio', 'none');
+                        image.setAttribute('clip-path', `url(#${clipId})`);
+                        image.setAttribute('transform', `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.e}, ${matrix.f})`);
+
+                        // Append image after path
+                        facesGroup.appendChild(image);
+
+                        // Make path transparent
+                        path.style.fill = 'none';
                     }
-
-                    Array.from(faceGroup.children).forEach((path, i) => {
-                        // Apply classes first
-                        if (this.graph.faces_classes && this.graph.faces_classes[i]) {
-                            path.classList.add(this.graph.faces_classes[i]);
-                        }
-                        if (this.graph.faces_flipped && this.graph.faces_flipped[i]) {
-                            path.classList.add('flipped');
-                        }
-
-                        // Apply texture if it's an "image" face and NOT flipped (or flipped if back is image?)
-                        if (this.graph.faces_classes && this.graph.faces_classes[i] === 'image') {
-                            // We need to calculate the transform from the INITIAL face to the CURRENT face.
-                            const initialVertices = this.initialState.faces_vertices[i].map(vIdx => this.initialState.vertices_coords[vIdx]);
-                            const currentVertices = this.graph.faces_vertices[i].map(vIdx => this.graph.vertices_coords[vIdx]);
-
-                            // Calculate affine transform matrix
-                            if (initialVertices.length >= 3 && currentVertices.length >= 3) {
-                                const matrix = this.calculateAffineTransform(initialVertices, currentVertices);
-
-                                // Create a clip path for this face
-                                const clipId = `clip-face-${i}`;
-                                const clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
-                                clipPath.setAttribute('id', clipId);
-                                // Clone the path geometry for clipping
-                                const clipPathGeometry = path.cloneNode(true);
-                                clipPathGeometry.removeAttribute('class');
-                                clipPathGeometry.removeAttribute('id');
-                                clipPath.appendChild(clipPathGeometry);
-                                defs.appendChild(clipPath);
-
-                                // Create the image element
-                                const image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-                                image.setAttributeNS('http://www.w3.org/1999/xlink', 'href', imageUrl);
-                                // Image size should match the puzzle bounds (0,0 to 2,2 for sample)
-                                image.setAttribute('x', '0');
-                                image.setAttribute('y', '0');
-                                image.setAttribute('width', '2'); // Hardcoded for sample 2x2
-                                image.setAttribute('height', '2');
-                                image.setAttribute('preserveAspectRatio', 'none');
-
-                                // Apply clip path
-                                image.setAttribute('clip-path', `url(#${clipId})`);
-
-                                // Apply transform
-                                image.setAttribute('transform', `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.e}, ${matrix.f})`);
-
-                                // Insert image after the path
-                                path.parentNode.insertBefore(image, path.nextSibling);
-
-                                // Make the path transparent so we see the image, but keep stroke
-                                path.style.fill = 'none';
-                            }
-                        }
-                    });
-                } else if (faceGroup) {
-                    // Fallback for no texture
-                    Array.from(faceGroup.children).forEach((path, i) => {
-                        if (this.graph.faces_classes && this.graph.faces_classes[i]) {
-                            path.classList.add(this.graph.faces_classes[i]);
-                        }
-                        if (this.graph.faces_flipped && this.graph.faces_flipped[i]) {
-                            path.classList.add('flipped');
-                        }
-                    });
                 }
-            } catch (err) {
-                console.error('FoldingEngine: Error rendering SVG', err);
-            }
-        } else {
-            console.error('FoldingEngine: Rabbit Ear not found or invalid');
+            });
+        }
+
+        // Render Edges (Creases)
+        const edgesGroup = document.createElementNS(svgNS, 'g');
+        edgesGroup.setAttribute('id', 'edges');
+        svg.appendChild(edgesGroup);
+
+        if (this.graph.edges_vertices) {
+            this.graph.edges_vertices.forEach((edgeIndices, i) => {
+                const u = this.graph.vertices_coords[edgeIndices[0]];
+                const v = this.graph.vertices_coords[edgeIndices[1]];
+
+                const line = document.createElementNS(svgNS, 'line');
+                line.setAttribute('x1', u[0]);
+                line.setAttribute('y1', u[1]);
+                line.setAttribute('x2', v[0]);
+                line.setAttribute('y2', v[1]);
+                line.classList.add('crease');
+
+                // Add specific classes if we have edge assignments (M/V)
+                if (this.graph.edges_assignment && this.graph.edges_assignment[i]) {
+                    line.classList.add(this.graph.edges_assignment[i]);
+                }
+
+                edgesGroup.appendChild(line);
+            });
         }
     }
 

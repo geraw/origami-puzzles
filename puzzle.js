@@ -22,8 +22,30 @@ class PuzzleManager {
             // We might need to track Z-order or face normals for "image" vs "color" check
             // For now, let's assume faces_classes tracks the *logical* side.
             // But we need to know if a face is flipped.
-            faces_flipped: new Array(this.puzzleData.faces_vertices.length).fill(false)
+            faces_flipped: new Array(this.puzzleData.faces_vertices.length).fill(false),
+            edges_vertices: [],
+            edges_assignment: []
         };
+
+        // Generate edges if not present
+        if (!this.puzzleData.edges_vertices) {
+            const edgesMap = new Map();
+            this.initialState.faces_vertices.forEach(face => {
+                for (let i = 0; i < face.length; i++) {
+                    const u = face[i];
+                    const v = face[(i + 1) % face.length];
+                    const key = u < v ? `${u},${v}` : `${v},${u}`;
+                    if (!edgesMap.has(key)) {
+                        edgesMap.set(key, [u, v]);
+                    }
+                }
+            });
+            this.initialState.edges_vertices = Array.from(edgesMap.values());
+            this.initialState.edges_assignment = new Array(this.initialState.edges_vertices.length).fill('B');
+        } else {
+            this.initialState.edges_vertices = JSON.parse(JSON.stringify(this.puzzleData.edges_vertices));
+            this.initialState.edges_assignment = JSON.parse(JSON.stringify(this.puzzleData.edges_assignment || []));
+        }
     }
 
     getInitialState() {
