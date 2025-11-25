@@ -2,6 +2,7 @@
     "name": "Sample Diagonal Puzzle",
     "difficulty": "Easy",
     "file_spec": 1.1,
+    "image_url": "images/puzzle-texture.png",
     "vertices_coords": [
         [
             0,

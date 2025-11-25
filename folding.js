@@ -130,25 +130,16 @@ class FoldingEngine {
         if (!this.container) return;
         this.container.innerHTML = '';
 
+        // If we don't have a graph yet (initial load), build it
+        if (!this.graph || !this.graph.vertices_coords) {
+            this.graph = this.buildGraphFromManager();
+        }
+
         // Use Rabbit Ear to render
         if (window.ear && window.ear.svg) {
             const svg = window.ear.svg(this.container, this.graph);
 
-            // Apply styles to faces
-            const faceGroup = svg.querySelector('#faces');
-            if (faceGroup) {
-                Array.from(faceGroup.children).forEach((path, i) => {
-                    if (this.graph.faces_classes && this.graph.faces_classes[i]) {
-                        path.classList.add(this.graph.faces_classes[i]);
-                    }
-                    // Check if flipped
-                    if (this.graph.faces_flipped && this.graph.faces_flipped[i]) {
-                        path.classList.add('flipped');
-                    }
-                });
-            }
-
-            // Add a viewBox to ensure it fits?
+            // Add a viewBox to ensure it fits
             if (!svg.getAttribute('viewBox')) {
                 // Calculate bounds
                 let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -163,6 +154,135 @@ class FoldingEngine {
                 const h = maxY - minY + padding * 2;
                 svg.setAttribute('viewBox', `${minX - padding} ${minY - padding} ${w} ${h}`);
             }
+
+            // Apply styles and textures to faces
+            const faceGroup = svg.querySelector('#faces');
+            if (faceGroup && this.puzzleManager && this.puzzleManager.puzzleData.image_url) {
+                const imageUrl = this.puzzleManager.puzzleData.image_url;
+
+                // We need to add definitions for clip paths
+                let defs = svg.querySelector('defs');
+                if (!defs) {
+                    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                    svg.insertBefore(defs, svg.firstChild);
+                }
+
+                Array.from(faceGroup.children).forEach((path, i) => {
+                    // Apply classes first
+                    if (this.graph.faces_classes && this.graph.faces_classes[i]) {
+                        path.classList.add(this.graph.faces_classes[i]);
+                    }
+                    if (this.graph.faces_flipped && this.graph.faces_flipped[i]) {
+                        path.classList.add('flipped');
+                    }
+
+                    // Apply texture if it's an "image" face and NOT flipped (or flipped if back is image?)
+                    // Let's assume "image" class means it shows the image.
+                    if (this.graph.faces_classes && this.graph.faces_classes[i] === 'image') {
+                        // We need to calculate the transform from the INITIAL face to the CURRENT face.
+                        // 1. Get initial vertices of this face
+                        const initialVertices = this.initialState.faces_vertices[i].map(vIdx => this.initialState.vertices_coords[vIdx]);
+                        // 2. Get current vertices of this face
+                        const currentVertices = this.graph.faces_vertices[i].map(vIdx => this.graph.vertices_coords[vIdx]);
+
+                        // Calculate affine transform matrix
+                        // We need to map initial triangle to current triangle.
+                        // We can use the first 3 vertices.
+                        if (initialVertices.length >= 3 && currentVertices.length >= 3) {
+                            const matrix = this.calculateAffineTransform(initialVertices, currentVertices);
+
+                            // Create a clip path for this face
+                            const clipId = `clip-face-${i}`;
+                            const clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+                            clipPath.setAttribute('id', clipId);
+                            // Clone the path geometry for clipping
+                            const clipPathGeometry = path.cloneNode(true);
+                            clipPathGeometry.removeAttribute('class');
+                            clipPathGeometry.removeAttribute('id');
+                            clipPath.appendChild(clipPathGeometry);
+                            defs.appendChild(clipPath);
+
+                            // Create the image element
+                            const image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+                            image.setAttributeNS('http://www.w3.org/1999/xlink', 'href', imageUrl);
+                            // Image size should match the puzzle bounds (0,0 to 2,2 for sample)
+                            // Let's assume image covers 0,0 to 2,2
+                            image.setAttribute('x', '0');
+                            image.setAttribute('y', '0');
+                            image.setAttribute('width', '2'); // Hardcoded for sample 2x2
+                            image.setAttribute('height', '2');
+                            image.setAttribute('preserveAspectRatio', 'none');
+
+                            // Apply clip path
+                            image.setAttribute('clip-path', `url(#${clipId})`);
+
+                            // Apply transform
+                            // The transform maps the initial coordinate system to the current one.
+                            // Since the image is defined in the initial coordinate system, applying this matrix
+                            // should move the image pixels to the correct place.
+                            image.setAttribute('transform', `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.e}, ${matrix.f})`);
+
+                            // Insert image after the path (so it draws on top)
+                            // Or replace the path fill?
+                            // Better: make the path transparent and draw image on top?
+                            // Or put image inside a group with the path?
+                            // Let's append to faceGroup for now, but we need to ensure order.
+                            // Actually, Rabbit Ear renders paths. We can just append the image after the path.
+                            path.parentNode.insertBefore(image, path.nextSibling);
+
+                            // Make the path transparent so we see the image, but keep stroke
+                            path.style.fill = 'none';
+                        }
+                    }
+                });
+            } else if (faceGroup) {
+                // Fallback for no texture
+                Array.from(faceGroup.children).forEach((path, i) => {
+                    if (this.graph.faces_classes && this.graph.faces_classes[i]) {
+                        path.classList.add(this.graph.faces_classes[i]);
+                    }
+                    if (this.graph.faces_flipped && this.graph.faces_flipped[i]) {
+                        path.classList.add('flipped');
+                    }
+                });
+            }
         }
+    }
+
+    // Helper to calculate affine transform matrix from 3 points to 3 points
+    calculateAffineTransform(src, dst) {
+        // src: [[x0, y0], [x1, y1], [x2, y2]]
+        // dst: [[u0, v0], [u1, v1], [u2, v2]]
+        // We want matrix M such that M * src_i = dst_i
+        // [a c e] [x]   [u]
+        // [b d f] [y] = [v]
+        // [0 0 1] [1]   [1]
+
+        // This is a system of linear equations.
+        // We can solve it by computing M = D * S^-1 where D is destination matrix and S is source matrix.
+        // But simpler to just solve explicitly or use a library.
+        // Let's implement a simple solver for 3 points.
+
+        const x0 = src[0][0], y0 = src[0][1];
+        const x1 = src[1][0], y1 = src[1][1];
+        const x2 = src[2][0], y2 = src[2][1];
+
+        const u0 = dst[0][0], v0 = dst[0][1];
+        const u1 = dst[1][0], v1 = dst[1][1];
+        const u2 = dst[2][0], v2 = dst[2][1];
+
+        // Denominator
+        const den = x0 * (y1 - y2) - y0 * (x1 - x2) + (x1 * y2 - x2 * y1);
+
+        if (Math.abs(den) < 1e-6) return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }; // Degenerate
+
+        const a = (u0 * (y1 - y2) - y0 * (u1 - u2) + (u1 * y2 - u2 * y1)) / den;
+        const b = (v0 * (y1 - y2) - y0 * (v1 - v2) + (v1 * y2 - v2 * y1)) / den;
+        const c = (x0 * (u1 - u2) - u0 * (x1 - x2) + (x1 * u2 - x2 * u1)) / den;
+        const d = (x0 * (v1 - v2) - v0 * (x1 - x2) + (x1 * v2 - x2 * v1)) / den;
+        const e = (x0 * (y1 * u2 - y2 * u1) - y0 * (x1 * u2 - x2 * u1) + (x1 * y2 * u0 - x2 * y1 * u0)) / den;
+        const f = (x0 * (y1 * v2 - y2 * v1) - y0 * (x1 * v2 - x2 * v1) + (x1 * y2 * v0 - x2 * y1 * v0)) / den;
+
+        return { a, b, c, d, e, f };
     }
 }
